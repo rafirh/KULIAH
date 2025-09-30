@@ -6,7 +6,7 @@ package Tugas4Method;
 
 import java.util.Scanner;
 
-public class ConvertMillis {
+public class ConvertMillis_6_25 {
 
     public static String convertMillis(long millis) {
         long totalSeconds = millis / 1000;

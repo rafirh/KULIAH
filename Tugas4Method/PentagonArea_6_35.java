@@ -6,7 +6,7 @@ package Tugas4Method;
 
 import java.util.Scanner;
 
-public class PentagonArea {
+public class PentagonArea_6_35 {
     public static double area(double side) {
         return (5 * Math.pow(side, 2)) / (4 * Math.tan(Math.PI / 5));
     }

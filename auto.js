@@ -1,82 +1,57 @@
 // === Script Auto Typing ke Elemen .ace_content ===
 
 // Kode yang mau diketik
-const code = `import java.util.*;
+const code = `
+import java.util.Scanner;
 
-public class utp2 {
+public class Main {
+
+public static int hitungPendapatanHarian(int jumlah, int hargaJual) {
+return jumlah * hargaJual;
+}
+
+public static int hitungKeuntunganHarian(int jumlah, int hargaJual, int biayaProduksi) {
+return (hargaJual - biayaProduksi) * jumlah;
+}
+
+public static int totalKeuntunganMingguan(int[] keuntungan, int index) {
+if (index == keuntungan.length) return 0;
+return keuntungan[index] + totalKeuntunganMingguan(keuntungan, index + 1);
+}
+
+public static void tampilkanLaporan(int totalPendapatan, int totalKeuntungan) {
+System.out.println("Total Pendapatan Mingguan: Rp" + totalPendapatan);
+System.out.println("Total Keuntungan Mingguan: Rp" + totalKeuntungan);
+}
+
 public static void main(String[] args) {
-Scanner input = new Scanner(System.in);
+Scanner in = new Scanner(System.in);
 
-int baris = input.nextInt();
-int kolom = input.nextInt();
-int harga = -1;
+int n = in.nextInt();
+int[] pendapatanHari = new int[n];
+int[] keuntunganHari = new int[n];
 
-boolean[][] kursiTerisi = new boolean[baris][kolom];
+for (int i = 0; i < n; i++) {
+int jumlah = in.nextInt();
+int hargaJual = in.nextInt();
+int biayaProduksi = in.nextInt();
 
-// Input status kursi
-for (int i = 0; i < baris; i++) {
-for (int j = 0; j < kolom; j++) {
-kursiTerisi[i][j] = input.next().equalsIgnoreCase("true");
-}
-}
-
-int n = input.nextInt();
-input.nextLine(); // konsumsi newline
-
-for (int index = 0; index < n; index++) {
-String perintah = input.nextLine().trim();
-
-if (perintah.equals("CEK_KURSI")) {
-for (int i = 0; i < baris; i++) {
-for (int j = 0; j < kolom; j++) {
-System.out.print((kursiTerisi[i][j] ? "X" : "O"));
-if (j < kolom - 1) System.out.print(" ");
-}
-System.out.println();
-}
-} else if (perintah.startsWith("PESAN")) {
-String[] arr = perintah.split("\\\\s+");
-int pBaris = Integer.parseInt(arr[1]) - 1;
-int pKolom = Integer.parseInt(arr[2]) - 1;
-
-if (kursiTerisi[pBaris][pKolom]) {
-System.out.printf("Kursi baris %d kolom %d sudah dipesan sebelumnya!\\n",
-pBaris + 1, pKolom + 1);
-} else {
-kursiTerisi[pBaris][pKolom] = true;
-System.out.printf("Kursi baris %d kolom %d berhasil dipesan.\\n",
-pBaris + 1, pKolom + 1);
+pendapatanHari[i] = hitungPendapatanHarian(jumlah, hargaJual);
+keuntunganHari[i] = hitungKeuntunganHarian(jumlah, hargaJual, biayaProduksi);
 }
 
-} else if (perintah.startsWith("SETHARGA")) {
-String[] arr = perintah.split("\\\\s+");
-harga = Integer.parseInt(arr[1]);
-System.out.println("Harga kursi diubah menjadi " + harga + ".");
-
-} else if (perintah.equals("HITUNG_PENDAPATAN")) {
-if (harga == -1) {
-System.out.println("Harga kursi belum ditetapkan!");
-} else {
-int total = 0;
-for (int i = 0; i < baris; i++) {
-for (int j = 0; j < kolom; j++) {
-if (kursiTerisi[i][j]) total += harga;
-}
-}
-System.out.println("Pendapatan: " + total);
+int totalPendapatan = 0;
+for (int i = 0; i < n; i++) {
+totalPendapatan += pendapatanHari[i];
+System.out.println("Hari ke-" + (i + 1) + " -> Pendapatan: Rp" + pendapatanHari[i] + " | Keuntungan: Rp" + keuntunganHari[i]);
 }
 
-} else if (perintah.equals("KOSONGKAN")) {
-for (int i = 0; i < baris; i++) {
-Arrays.fill(kursiTerisi[i], false);
-}
-System.out.println("Semua kursi telah dikosongkan.");
+int totalKeuntungan = totalKeuntunganMingguan(keuntunganHari, 0);
+tampilkanLaporan(totalPendapatan, totalKeuntungan);
 }
 }
 
-input.close();
-}
-}`;
+`;
 
 // Ambil elemen target
 const editorEl = document.querySelector('.ace_content');

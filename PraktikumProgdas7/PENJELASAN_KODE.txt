@@ -1,0 +1,282 @@
+===============================================================================
+           PENJELASAN IMPLEMENTASI KODE SISTEM TRANSAKSI SWALAYAN TINY
+===============================================================================
+
+1. CLASS CUSTOMER (Customer.java)
+-------------------------------------------------------------------------------
+
+Kode implementasi digunakan untuk mengenkapsulasi data pelanggan dan menyediakan
+operasi dasar transaksi. Data disimpan dalam atribut private (customerNumber, 
+name, balance, pin, isFrozen, failedAttempts) dan diakses melalui metode getter.
+
+Baris 1-7 digunakan untuk mendeklarasikan atribut private yang menyimpan informasi
+pelanggan. Atribut-atribut ini tidak dapat diakses langsung dari luar class sesuai
+prinsip enkapsulasi OOP.
+
+Baris 9-16 menunjukkan constructor yang menginisialisasi semua atribut pelanggan.
+Parameter customerNumber, name, balance, dan pin diterima dari pemanggil, sedangkan
+isFrozen diset false dan failedAttempts diset 0 sebagai nilai default.
+
+Baris 18 menunjukkan abstract method calculateCashback yang harus diimplementasikan
+oleh setiap subclass. Method ini penting untuk polimorfisme karena setiap tipe
+pelanggan memiliki perhitungan cashback yang berbeda.
+
+Baris 38-55 menunjukkan method validatePin yang menghandle autentifikasi pelanggan.
+Method ini mengecek status frozen, memvalidasi PIN, dan menghitung kesalahan
+autentifikasi.
+
+Dari percobaan dan analisis yang telah dilakukan, apabila baris 39-41 tidak ada 
+maka pelanggan yang sudah diblokir masih bisa mencoba autentifikasi. Sedangkan 
+apabila baris 48-50 tidak ada maka akun tidak akan pernah diblokir meskipun salah 
+PIN berulang kali, sehingga supaya dapat mengamankan akun pelanggan harus 
+mengimplementasikan pengecekan frozen status dan perhitungan failed attempts dengan 
+mempertimbangkan batas maksimal 3 kali kesalahan.
+
+Baris 57-70 digunakan untuk memproses transaksi pembelian. Method ini menghitung
+cashback, memvalidasi saldo minimum, dan memperbarui balance jika transaksi valid.
+Logika pada baris 63-66 sangat penting karena memastikan saldo setelah pembelian
+tidak kurang dari Rp 10.000 sesuai requirement.
+
+Baris 72-79 menunjukkan method topUp untuk menambah saldo pelanggan. Method ini
+lebih sederhana karena hanya menambahkan amount ke balance tanpa validasi saldo
+minimum.
+
+Baris 81-92 digunakan untuk mengidentifikasi tipe pelanggan berdasarkan 2 digit
+awal nomor pelanggan. Substring diambil dari index 0 sampai 2, kemudian dilakukan
+pencocokan dengan prefix "38" (Silver), "56" (Gold), atau "74" (Platinum).
+
+
+2. CLASS SILVERCUSTOMER, GOLDCUSTOMER, PLATINUMCUSTOMER
+-------------------------------------------------------------------------------
+
+Kode implementasi digunakan untuk mengimplementasikan inheritance dan polimorfisme
+dalam perhitungan cashback. Setiap class merupakan turunan dari Customer dan
+mengoverride method calculateCashback sesuai aturan masing-masing tipe.
+
+SilverCustomer (SilverCustomer.java):
+Baris 1 menunjukkan deklarasi class yang extends Customer untuk inheritance.
+Baris 3-5 digunakan untuk constructor yang meneruskan semua parameter ke parent
+class melalui super().
+Baris 8-12 menunjukkan implementasi calculateCashback yang memberikan 5% cashback
+hanya untuk pembelian di atas 1 juta, selain itu return 0.
+
+Dari percobaan dan analisis yang telah dilakukan, apabila kondisi pada baris 9
+tidak ada maka semua pembelian akan mendapat cashback 5% tanpa batasan. Sedangkan
+apabila return 0 pada baris 11 tidak ada maka pembelian di bawah 1 juta akan
+return undefined/null, sehingga supaya dapat menghitung cashback dengan benar
+harus menggunakan kondisional if-else dengan mempertimbangkan threshold 1 juta.
+
+GoldCustomer (GoldCustomer.java):
+Baris 8-14 menunjukkan implementasi calculateCashback dengan dual-tier cashback.
+Pembelian di atas 1 juta mendapat 7%, sedangkan pembelian lainnya tetap mendapat
+2%. Struktur if-else memastikan semua pembelian mendapat cashback.
+
+PlatinumCustomer (PlatinumCustomer.java):
+Baris 8-14 menunjukkan implementasi calculateCashback premium. Pembelian di atas
+1 juta mendapat 10%, sedangkan pembelian lainnya mendapat 5%. Ini memberikan
+benefit terbesar dibanding tipe lain.
+
+
+3. CLASS TRANSACTIONSYSTEM (TransactionSystem.java)
+-------------------------------------------------------------------------------
+
+Kode implementasi digunakan untuk mengelola koleksi pelanggan dan memproses semua
+transaksi sistem. Data pelanggan disimpan dalam HashMap dengan customerNumber
+sebagai key dan object Customer sebagai value.
+
+Baris 1-2 digunakan untuk import library HashMap dan Map yang diperlukan untuk
+menyimpan koleksi pelanggan.
+
+Baris 5 menunjukkan deklarasi atribut private customers bertipe Map untuk
+menyimpan semua pelanggan terdaftar.
+
+Baris 7-9 menunjukkan constructor yang menginisialisasi HashMap kosong untuk
+menampung pelanggan.
+
+Baris 11-13 digunakan untuk mendaftarkan pelanggan baru ke sistem. Method
+registerCustomer menerima object Customer dan menyimpannya dengan key berupa
+nomor pelanggan.
+
+Baris 28-68 menunjukkan method processPurchase yang merupakan core logic untuk
+transaksi pembelian. Method ini melakukan validasi bertahap mulai dari amount,
+keberadaan customer, status frozen, validasi PIN, hingga proses pembelian.
+
+Dari percobaan dan analisis yang telah dilakukan, apabila validasi pada baris
+29-31 tidak ada maka sistem akan memproses pembelian dengan amount negatif atau
+nol. Sedangkan apabila pengecekan frozen pada baris 38-40 tidak ada maka akun
+yang terblokir masih bisa bertransaksi, sehingga supaya dapat memastikan
+keamanan dan validitas transaksi harus melakukan pengecekan berlapis dengan
+mempertimbangkan semua kondisi error yang mungkin terjadi.
+
+Baris 42-49 digunakan untuk autentifikasi PIN dan memberikan feedback yang sesuai.
+Jika PIN salah, sistem menghitung sisa percobaan dan memberikan peringatan. Jika
+sudah 3x salah, akun langsung diblokir.
+
+Baris 51-65 menunjukkan proses pembelian aktual. Cashback dihitung terlebih dahulu
+menggunakan polimorfisme (method calculateCashback akan memanggil implementasi
+sesuai tipe pelanggan). Balance sebelum transaksi disimpan untuk ditampilkan,
+kemudian method purchase dipanggil. Jika berhasil, detail transaksi ditampilkan
+menggunakan StringBuilder.
+
+Baris 70-107 digunakan untuk method processTopUp dengan struktur validasi serupa.
+Perbedaannya adalah top up tidak memerlukan pengecekan saldo minimum karena
+menambah saldo pasti meningkatkan balance.
+
+Baris 109-133 menunjukkan method checkBalance untuk menampilkan informasi akun.
+Setelah validasi PIN berhasil, method ini menampilkan nomor pelanggan, nama, tipe,
+dan saldo terkini.
+
+Dari percobaan dan analisis yang telah dilakukan, apabila validasi PIN pada setiap
+method (baris 42-49, 85-92, 120-127) tidak diimplementasikan maka siapa saja bisa
+mengakses akun tanpa autentifikasi. Sedangkan apabila pengecekan customer null
+(baris 33-35, 75-77, 111-113) tidak ada maka akan terjadi NullPointerException,
+sehingga supaya dapat membangun sistem yang robust harus mengimplementasikan
+defensive programming dengan mempertimbangkan semua edge case.
+
+
+4. CLASS MAIN (Main.java)
+-------------------------------------------------------------------------------
+
+Kode implementasi digunakan untuk menyediakan antarmuka CLI (Command Line Interface)
+yang memungkinkan user berinteraksi dengan sistem. Data dummy pelanggan dibuat
+untuk testing dan demonstrasi.
+
+Baris 1 digunakan untuk import Scanner class yang diperlukan untuk membaca input
+dari user.
+
+Baris 5-6 menunjukkan inisialisasi TransactionSystem dan Scanner. Object system
+akan mengelola semua transaksi, sedangkan scanner membaca input user.
+
+Baris 8-10 digunakan untuk membuat instance pelanggan dummy dengan berbagai tipe.
+Silver customer dengan nomor "3812345678", Gold customer dengan nomor "5687654321",
+dan Platinum customer dengan nomor "7411223344". Setiap pelanggan memiliki saldo
+awal dan PIN yang berbeda.
+
+Baris 12-14 menunjukkan registrasi ketiga pelanggan ke sistem melalui method
+registerCustomer. Tanpa registrasi ini, pelanggan tidak akan bisa melakukan
+transaksi.
+
+Baris 16-90 digunakan untuk main loop yang menampilkan menu dan memproses pilihan
+user. Loop while(true) berjalan terus sampai user memilih keluar.
+
+Dari percobaan dan analisis yang telah dilakukan, apabila try-catch pada baris
+27-33 tidak ada maka input non-numerik akan menyebabkan program crash. Sedangkan
+apabila scanner.nextLine() pada baris 29 tidak ada setelah scanner.nextInt() maka
+akan terjadi bug dimana newline character tidak terkonsumsi sehingga input
+berikutnya ter-skip, sehingga supaya dapat membaca input dengan benar harus
+menggunakan scanner.nextLine() setelah nextInt()/nextDouble() dengan
+mempertimbangkan buffer clearing.
+
+Baris 35-38 menunjukkan kondisi exit. Jika user memilih menu 4, program menampilkan
+pesan terima kasih dan break dari loop untuk mengakhiri program.
+
+Baris 40-47 digunakan untuk membaca dan memvalidasi nomor pelanggan. Sistem
+memastikan nomor pelanggan tepat 10 digit sesuai requirement. Jika tidak valid,
+program continue ke iterasi berikutnya tanpa memproses lebih lanjut.
+
+Baris 49-50 menunjukkan input PIN dari user. PIN dibaca sebagai String agar bisa
+menangani PIN yang diawali angka 0.
+
+Baris 52-87 digunakan untuk switch-case yang memproses pilihan menu. Setiap case
+menghandle transaksi berbeda dengan validasi input dan error handling.
+
+Baris 54-63 menunjukkan case pembelian. Try-catch digunakan untuk menangkap
+exception jika user input bukan angka. Setelah input valid, system.processPurchase
+dipanggil dan hasilnya ditampilkan.
+
+Baris 65-74 digunakan untuk case top up dengan struktur serupa. Amount dibaca,
+divalidasi, kemudian diproses melalui system.processTopUp.
+
+Baris 76-79 menunjukkan case cek saldo yang lebih sederhana karena tidak perlu
+input amount. Method system.checkBalance langsung dipanggil dengan customerNumber
+dan PIN.
+
+Dari percobaan dan analisis yang telah dilakukan, apabila scanner.nextLine()
+setelah scanner.nextDouble() pada baris 58 dan 69 tidak ada maka input berikutnya
+akan error. Sedangkan apabila try-catch pada baris 55-62 tidak ada maka input
+huruf pada amount akan crash program, sehingga supaya dapat membuat CLI yang
+robust harus mengimplementasikan input validation dan buffer clearing dengan
+mempertimbangkan berbagai jenis input error.
+
+Baris 89 digunakan untuk menutup scanner setelah program selesai. Ini penting
+untuk resource management dan mencegah memory leak.
+
+
+5. ANALISIS KETERKAITAN ANTAR CLASS
+-------------------------------------------------------------------------------
+
+Sistem ini mengimplementasikan beberapa prinsip OOP fundamental:
+
+ENKAPSULASI:
+Semua atribut dalam class Customer dideklarasikan private dan hanya bisa diakses
+melalui getter methods. Ini mencegah modifikasi langsung dari luar class sesuai
+requirement "informasi akun tidak bisa diubah oleh pelanggan secara langsung".
+
+Dari percobaan dan analisis yang telah dilakukan, apabila atribut dideklarasikan
+public maka pelanggan bisa mengubah saldo mereka secara langsung tanpa melalui
+transaksi. Sedangkan apabila tidak ada getter methods maka informasi tidak bisa
+dibaca sama sekali, sehingga supaya dapat melindungi data sekaligus memberikan
+akses baca harus menggunakan private attributes dengan public getter methods.
+
+INHERITANCE:
+Class SilverCustomer, GoldCustomer, dan PlatinumCustomer mewarisi dari Customer.
+Mereka memanfaatkan kode yang sama (constructor, validatePin, purchase, topUp)
+namun memiliki implementasi calculateCashback yang berbeda.
+
+Dari percobaan dan analisis yang telah dilakukan, apabila tidak menggunakan
+inheritance maka kode validatePin, purchase, dan topUp harus diduplikasi di setiap
+tipe pelanggan. Sedangkan apabila calculateCashback tidak dijadikan abstract method
+maka setiap subclass bisa lupa mengimplementasikannya, sehingga supaya dapat
+memaksimalkan code reuse dan memastikan konsistensi harus menggunakan inheritance
+dengan abstract method untuk behavior yang berbeda-beda.
+
+POLIMORFISME:
+Variable bertipe Customer bisa menampung object SilverCustomer, GoldCustomer, atau
+PlatinumCustomer. Ketika method calculateCashback dipanggil, implementasi yang
+sesuai dengan tipe object aktual akan dijalankan (dynamic binding).
+
+Contoh pada TransactionSystem baris 51: customer.calculateCashback(amount) akan
+memanggil method yang sesuai dengan tipe pelanggan tanpa perlu if-else atau
+switch-case untuk membedakan tipe.
+
+Dari percobaan dan analisis yang telah dilakukan, apabila tidak menggunakan
+polimorfisme maka TransactionSystem harus mengecek tipe pelanggan secara manual
+dan memanggil method yang sesuai. Sedangkan apabila calculateCashback bukan abstract
+method maka tidak ada jaminan setiap subclass mengimplementasikannya, sehingga
+supaya dapat membuat kode yang extensible dan maintainable harus memanfaatkan
+polimorfisme dengan mempertimbangkan Open-Closed Principle.
+
+ABSTRAKSI:
+Class Customer adalah abstract class yang mendefinisikan template untuk semua
+tipe pelanggan. Method calculateCashback dideklarasikan abstract karena setiap
+tipe memiliki aturan berbeda.
+
+Collection Framework (HashMap) digunakan di TransactionSystem untuk menyimpan
+pelanggan dengan efisien. Pencarian pelanggan by customerNumber bisa dilakukan
+dalam O(1) time complexity.
+
+Dari percobaan dan analisis yang telah dilakukan, apabila menggunakan ArrayList
+maka pencarian pelanggan membutuhkan O(n) time. Sedangkan apabila menggunakan
+array biasa maka ukuran fixed dan tidak bisa dinamis, sehingga supaya dapat
+mengelola koleksi pelanggan dengan efisien harus menggunakan HashMap dengan
+mempertimbangkan kebutuhan fast lookup by key.
+
+
+6. KESIMPULAN
+-------------------------------------------------------------------------------
+
+Implementasi sistem transaksi swalayan ini berhasil memenuhi semua requirement:
+- Enkapsulasi data pelanggan yang tidak bisa diubah langsung
+- Identifikasi tipe pelanggan berdasarkan 2 digit awal nomor (38/56/74)
+- Perhitungan cashback sesuai tipe pelanggan
+- Validasi saldo minimum Rp 10.000 setelah transaksi
+- Autentifikasi dengan PIN dan nomor pelanggan
+- Pemblokiran akun setelah 3x salah PIN
+- Fitur pembelian dan top up
+
+Sistem dibangun dengan prinsip OOP yang solid, menggunakan enkapsulasi untuk
+keamanan data, inheritance untuk code reuse, polimorfisme untuk extensibility,
+dan abstraksi untuk mendefinisikan contract. Error handling dan input validation
+diimplementasikan di setiap layer untuk memastikan robustness.
+
+===============================================================================

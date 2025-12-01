@@ -1,0 +1,387 @@
+===============================================================================
+              KESULITAN DAN SOLUSI DALAM IMPLEMENTASI SISTEM
+                     TRANSAKSI SWALAYAN TINY
+===============================================================================
+
+KESULITAN 1: PEMAHAMAN KONSEP ABSTRACT CLASS DAN INHERITANCE
+
+Pada awal pengembangan, terdapat kebingungan mengenai kapan harus menggunakan abstract class dan bagaimana cara mengimplementasikan inheritance dengan benar. Tidak paham mengapa method calculateCashback harus dibuat abstract dan bagaimana setiap subclass mengoverride method tersebut. Bagian yang tidak dipahami mencakup perbedaan antara abstract class dengan interface, kapan method harus dijadikan abstract, bagaimana polimorfisme bekerja dengan abstract class, dan mengapa tidak bisa membuat instance dari abstract class.
+
+Untuk mengatasi kesulitan ini, dilakukan pembelajaran konsep abstract class sebagai template untuk class turunan. Abstract class bisa memiliki method konkret dan abstract, sedangkan interface hanya bisa memiliki abstract method sebelum Java 8. Abstract class digunakan ketika ada shared behavior antar subclass. Method calculateCashback dijadikan abstract karena setiap tipe pelanggan memiliki aturan cashback berbeda, memaksa setiap subclass untuk mengimplementasikannya, dan memungkinkan polimorfisme saat pemanggilan method. Solusi implementasi yang diterapkan adalah membuat Customer sebagai abstract class dengan method abstract calculateCashback, setiap subclass seperti Silver, Gold, dan Platinum mengoverride method tersebut, dan TransactionSystem tidak perlu tahu tipe konkret, cukup reference Customer. Hasil setelah solusi diterapkan adalah kode menjadi lebih modular dan extensible, dimana jika ada tipe pelanggan baru seperti Diamond, cukup buat class baru extends Customer tanpa mengubah TransactionSystem.
+
+
+===============================================================================
+
+KESULITAN 2: PENANGANAN INPUT SCANNER DAN BUFFER CLEARING
+
+Terjadi bug dimana setelah menggunakan scanner.nextInt() atau scanner.nextDouble(), input String berikutnya ter-skip otomatis tanpa menunggu user input. Program langsung melompat ke statement berikutnya tanpa membaca input yang seharusnya. Bagian yang tidak dipahami meliputi mengapa setelah nextInt() input berikutnya langsung ter-skip, bagaimana cara kerja buffer input Scanner, kapan harus menggunakan nextLine() vs next(), dan mengapa harus ada scanner.nextLine() tambahan setelah nextInt().
+
+Setelah dilakukan analisis masalah, ditemukan bahwa nextInt() dan nextDouble() hanya membaca angka, tidak konsumsi newline, sehingga karakter newline tetap ada di buffer dan nextLine() berikutnya membaca newline tersebut sebagai input kosong. Contoh bug yang terjadi adalah ketika choice = scanner.nextInt() dipanggil dengan user input 1[Enter], Scanner membaca "1" namun newline masih di buffer, kemudian String customerNumber = scanner.nextLine() membaca newline tersebut dan return string kosong, sehingga program langsung lanjut tanpa menunggu input. Solusi yang diterapkan adalah menambahkan scanner.nextLine() setelah setiap nextInt() atau nextDouble() untuk mengkonsumsi newline yang tersisa di buffer. Alternative solution yang bisa digunakan adalah menggunakan nextLine() untuk semua input dan parse ke integer/double secara manual dengan Integer.parseInt(). Hasil setelah solusi diterapkan adalah input berjalan normal, tidak ada lagi bug input ter-skip, dan program menunggu user input dengan benar pada setiap prompt.
+
+
+===============================================================================
+
+KESULITAN 3: IMPLEMENTASI VALIDASI PIN DAN SISTEM BLOCKING
+
+Kesulitan dalam merancang mekanisme yang memblokir akun setelah 3x salah PIN namun tetap bisa memberikan feedback berapa kali percobaan tersisa. Juga bingung bagaimana cara mempertahankan counter failedAttempts antar pemanggilan method. Bagian yang tidak dipahami mencakup bagaimana cara melacak jumlah kesalahan PIN per pelanggan, kapan counter harus di-reset (saat PIN benar atau saat frozen), bagaimana mencegah pelanggan yang sudah frozen untuk tetap coba login, dan sequence validasi yang benar (cek frozen dulu atau validate PIN dulu).
+
+Setelah dilakukan analisis requirement, ditemukan bahwa setiap pelanggan punya counter failedAttempts sendiri sebagai instance variable, counter increment saat PIN salah, counter reset ke 0 saat PIN benar, akun frozen saat failedAttempts mencapai atau melebihi 3, dan akun frozen tidak bisa melakukan transaksi sama sekali. Design decision yang diambil adalah menjadikan failedAttempts dan isFrozen sebagai atribut private di Customer, membuat validatePin() method yang handle semua logic autentifikasi, dan melakukan cek isFrozen dulu sebelum validasi PIN. Implementasi validatePin() dilakukan dengan tiga step yaitu cek isFrozen dan return false jika sudah frozen untuk cegah akses, cek apakah PIN benar dan reset counter failedAttempts ke 0 lalu return true, dan jika salah maka increment failedAttempts kemudian set isFrozen menjadi true jika failedAttempts mencapai 3. Feedback mechanism di TransactionSystem diimplementasikan dengan mengecek customer.getFailedAttempts() setelah validatePin() return false, menghitung remainingAttempts dengan rumus 3 dikurangi failedAttempts, dan mengecek lagi customer.isFrozen() untuk menampilkan pesan blocking. Hasil setelah solusi diterapkan adalah sistem blocking bekerja dengan sempurna, user mendapat feedback jelas berapa percobaan tersisa, dan akun terblokir permanent setelah 3x salah.
+
+
+===============================================================================
+
+KESULITAN 4: VALIDASI SALDO MINIMUM SETELAH TRANSAKSI
+-------------------------------------------------------------------------------
+
+DESKRIPSI KESULITAN:
+Requirement menyebutkan saldo minimal Rp 10.000 harus dipertahankan SETELAH
+transaksi. Awalnya melakukan validasi sebelum menghitung cashback, sehingga
+transaksi valid bisa ditolak padahal dengan cashback saldo masih cukup.
+
+BAGIAN YANG TIDAK DIPAHAMI:
+- Apakah cashback dihitung sebelum atau sesudah validasi saldo
+- Apakah cashback langsung masuk ke saldo atau perlu konfirmasi
+- Bagaimana urutan kalkulasi yang benar
+- Apakah validasi saldo dulu atau update balance dulu
+
+TROUBLESHOOTING DAN SOLUSI:
+1. Analisis requirement lebih detail:
+   "Pelanggan harus memiliki saldo minimal Rp 10.000. Jika saldo pasca transaksi
+   kurang dari batas minimal tadi, maka transaksi pembelian dianggap gagal."
+   
+   Kata kunci: "pasca transaksi" dan "cashback kembali ke saldo"
+   Artinya: cashback harus dihitung dan ditambahkan, baru cek saldo akhir
+
+2. Implementasi yang salah (awal):
+   ```
+   if (balance - amount < 10000) {  // Salah: tidak hitung cashback
+     return false;
+   }
+   balance = balance - amount;
+   ```
+
+3. Implementasi yang benar:
+   ```
+   double cashback = calculateCashback(amount);
+   double finalBalance = balance - amount + cashback;
+   
+   if (finalBalance < 10000) {  // Benar: sudah include cashback
+     return false;
+   }
+   
+   balance = finalBalance;  // Update jika valid
+   return true;
+   ```
+
+4. Flow yang benar:
+   - Hitung cashback berdasarkan amount
+   - Kalkulasi finalBalance = saldo sekarang - pembelian + cashback
+   - Validasi finalBalance >= 10000
+   - Jika valid, update balance
+   - Jika tidak, return false tanpa mengubah balance
+
+HASIL SETELAH SOLUSI:
+Validasi saldo bekerja dengan benar. Transaksi dengan cashback yang membuat saldo
+tetap di atas 10rb bisa sukses, sedangkan yang di bawah ditolak.
+
+
+===============================================================================
+
+KESULITAN 5: ERROR HANDLING DAN INPUT VALIDATION
+-------------------------------------------------------------------------------
+
+DESKRIPSI KESULITAN:
+Program crash ketika user memasukkan input yang tidak sesuai tipe data, misalnya
+memasukkan huruf saat diminta angka untuk amount atau menu choice. Tidak ada
+mekanisme untuk menangkap dan recovery dari error tersebut.
+
+BAGIAN YANG TIDAK DIPAHAMI:
+- Jenis exception apa yang terjadi saat input tidak valid
+- Bagaimana cara menangkap exception tanpa crash
+- Apa yang harus dilakukan setelah menangkap exception
+- Bagaimana cara memberikan feedback yang baik ke user
+
+TROUBLESHOOTING DAN SOLUSI:
+1. Identifikasi exception:
+   - scanner.nextInt() throw InputMismatchException jika input bukan integer
+   - scanner.nextDouble() throw InputMismatchException jika input bukan double
+   - Exception tidak tertangkap menyebabkan program terminate
+
+2. Implementasi try-catch block:
+   ```
+   try {
+     choice = scanner.nextInt();
+     scanner.nextLine();  // Buffer clearing
+   } catch (Exception e) {
+     scanner.nextLine();  // PENTING: clear buffer di catch juga
+     System.out.println("Input tidak valid!");
+     continue;  // Skip iterasi ini, kembali ke menu
+   }
+   ```
+
+3. Pentingnya buffer clearing di catch block:
+   - Saat exception terjadi, input invalid masih ada di buffer
+   - Harus di-clear dengan nextLine() di catch block
+   - Jika tidak, loop berikutnya akan langsung error lagi
+
+4. Validasi tambahan:
+   - Cek panjang customerNumber == 10 digit
+   - Cek amount > 0 di processPurchase dan processTopUp
+   - Cek customer != null sebelum operasi
+   - Cek isFrozen sebelum transaksi
+
+5. User feedback yang informatif:
+   - "Input tidak valid!" untuk input error
+   - "Nomor pelanggan harus 10 digit!" untuk format salah
+   - "Jumlah tidak valid!" untuk amount error
+   - "PIN salah! Sisa percobaan: X" untuk auth error
+
+HASIL SETELAH SOLUSI:
+Program robust dan tidak crash dengan input apapun. User mendapat feedback jelas
+dan bisa retry tanpa restart program.
+
+
+===============================================================================
+
+KESULITAN 6: PENGGUNAAN HASHMAP VS ARRAYLIST
+-------------------------------------------------------------------------------
+
+DESKRIPSI KESULITAN:
+Awalnya menggunakan ArrayList untuk menyimpan pelanggan, tapi proses pencarian
+pelanggan by customerNumber membutuhkan looping. Tidak yakin apakah ini approach
+yang efisien, terutama jika jumlah pelanggan banyak.
+
+BAGIAN YANG TIDAK DIPAHAMI:
+- Perbedaan performance ArrayList vs HashMap
+- Kapan harus menggunakan List vs Map
+- Bagaimana HashMap melakukan lookup
+- Apakah ada tradeoff dalam penggunaan HashMap
+
+TROUBLESHOOTING DAN SOLUSI:
+1. Analisis kebutuhan:
+   - Sistem perlu mencari pelanggan by customerNumber setiap transaksi
+   - customerNumber unique untuk setiap pelanggan
+   - Frekuensi lookup tinggi (setiap transaksi)
+   - Tidak perlu urutan tertentu
+
+2. Perbandingan ArrayList vs HashMap:
+   
+   ArrayList:
+   - Lookup by customerNumber: O(n) - harus loop semua
+   - Insert: O(1) - tambah di akhir
+   - Memory: lebih efisien sedikit
+   - Use case: ketika perlu index access atau maintain order
+   
+   HashMap:
+   - Lookup by key: O(1) - langsung dapat
+   - Insert: O(1) - langsung masukkan
+   - Memory: overhead untuk hash table
+   - Use case: ketika perlu fast lookup by unique key
+
+3. Implementasi dengan ArrayList (tidak efisien):
+   ```
+   public Customer getCustomer(String customerNumber) {
+     for (Customer c : customers) {  // O(n) complexity
+       if (c.getCustomerNumber().equals(customerNumber)) {
+         return c;
+       }
+     }
+     return null;
+   }
+   ```
+
+4. Implementasi dengan HashMap (efisien):
+   ```
+   private Map<String, Customer> customers;
+   
+   public Customer getCustomer(String customerNumber) {
+     return customers.get(customerNumber);  // O(1) complexity
+   }
+   ```
+
+5. Keputusan design:
+   - Gunakan HashMap karena lookup by customerNumber adalah operasi utama
+   - customerNumber sebagai key (unique identifier)
+   - Customer object sebagai value
+   - Trade memory overhead untuk speed improvement
+
+HASIL SETELAH SOLUSI:
+Performa sistem meningkat signifikan. Lookup pelanggan instant bahkan dengan
+ribuan pelanggan terdaftar.
+
+
+===============================================================================
+
+KESULITAN 7: POLIMORFISME DAN DYNAMIC BINDING
+-------------------------------------------------------------------------------
+
+DESKRIPSI KESULITAN:
+Tidak yakin bagaimana cara memanggil method calculateCashback yang berbeda untuk
+setiap tipe pelanggan tanpa menggunakan if-else atau instanceof. Awalnya berencana
+membuat switch-case based on customerNumber prefix di TransactionSystem.
+
+BAGIAN YANG TIDAK DIPAHAMI:
+- Bagaimana Java menentukan method mana yang dipanggil saat runtime
+- Apakah perlu casting ke tipe konkret (SilverCustomer, GoldCustomer, dll)
+- Bagaimana cara kerja dynamic binding
+- Kapan method resolution terjadi (compile time atau runtime)
+
+TROUBLESHOOTING DAN SOLUSI:
+1. Pendekatan yang tidak efisien (awal planning):
+   ```
+   String prefix = customerNumber.substring(0, 2);
+   double cashback = 0;
+   
+   if (prefix.equals("38")) {
+     if (amount > 1000000) {
+       cashback = amount * 0.05;
+     }
+   } else if (prefix.equals("56")) {
+     if (amount > 1000000) {
+       cashback = amount * 0.07;
+     } else {
+       cashback = amount * 0.02;
+     }
+   } else if (prefix.equals("74")) {
+     // ... dan seterusnya
+   }
+   ```
+   Masalah: tidak scalable, melanggar Open-Closed Principle
+
+2. Pemahaman polimorfisme:
+   - Variable bertipe parent (Customer) bisa reference child object
+   - Saat method dipanggil, Java cek tipe actual object (runtime)
+   - Method dari tipe actual yang dijalankan (dynamic binding)
+   - Tidak perlu instanceof atau casting
+
+3. Implementasi dengan polimorfisme:
+   ```
+   // Di TransactionSystem:
+   Customer customer = customers.get(customerNumber);
+   double cashback = customer.calculateCashback(amount);
+   
+   // Java otomatis panggil:
+   // - SilverCustomer.calculateCashback() jika customer adalah SilverCustomer
+   // - GoldCustomer.calculateCashback() jika customer adalah GoldCustomer
+   // - PlatinumCustomer.calculateCashback() jika customer adalah PlatinumCustomer
+   ```
+
+4. Keuntungan approach ini:
+   - TransactionSystem tidak perlu tahu tipe konkret customer
+   - Mudah menambah tipe baru tanpa ubah TransactionSystem
+   - Kode lebih clean dan maintainable
+   - Mengikuti prinsip OOP yang benar
+
+5. Diagram flow:
+   ```
+   customers.get() -> return Customer reference (actual: GoldCustomer object)
+   customer.calculateCashback(amount) -> dynamic binding -> GoldCustomer.calculateCashback()
+   ```
+
+HASIL SETELAH SOLUSI:
+Kode menjadi sangat modular. Menambah tipe pelanggan baru (misal Diamond dengan
+cashback 15%/8%) hanya perlu:
+1. Buat class DiamondCustomer extends Customer
+2. Override calculateCashback
+3. Tidak perlu ubah TransactionSystem sama sekali
+
+
+===============================================================================
+
+KESULITAN 8: RESOURCE MANAGEMENT DAN MEMORY LEAK
+-------------------------------------------------------------------------------
+
+DESKRIPSI KESULITAN:
+Mendapat warning dari IDE bahwa Scanner tidak ditutup dan bisa menyebabkan
+resource leak. Tidak yakin apakah ini critical dan bagaimana cara proper
+menanganinya.
+
+BAGIAN YANG TIDAK DIPAHAMI:
+- Mengapa Scanner harus ditutup
+- Apa yang terjadi jika Scanner tidak ditutup
+- Kapan waktu yang tepat untuk close Scanner
+- Apakah ada cara otomatis untuk resource cleanup
+
+TROUBLESHOOTING DAN SOLUSI:
+1. Pemahaman resource management:
+   - Scanner membuka stream ke System.in (keyboard input)
+   - Stream adalah system resource yang terbatas
+   - Jika tidak ditutup, resource tidak dirilis ke OS
+   - Dalam program kecil tidak terasa, tapi bad practice
+
+2. Masalah jika tidak close:
+   - Resource leak - resource tidak dirilis
+   - Dalam long-running application bisa akumulasi
+   - Best practice: always close resources when done
+
+3. Solusi implementasi:
+   ```
+   Scanner scanner = new Scanner(System.in);
+   
+   try {
+     // Program logic...
+     while (true) {
+       // Menu dan operasi...
+       if (choice == 4) break;
+     }
+   } finally {
+     scanner.close();  // Ensure closure even if exception
+   }
+   ```
+
+4. Alternative dengan try-with-resources (Java 7+):
+   ```
+   try (Scanner scanner = new Scanner(System.in)) {
+     // Program logic...
+     // Scanner otomatis di-close saat keluar try block
+   }
+   ```
+
+5. Trade-off consideration:
+   - Closing System.in scanner bisa menyebabkan issue jika ada code lain yang
+     perlu System.in setelahnya
+   - Dalam standalone CLI app seperti ini, close di akhir program OK
+   - Jika bagian dari system lebih besar, pertimbangkan tidak close System.in
+
+HASIL SETELAH SOLUSI:
+Warning hilang, resource management proper, mengikuti best practice Java.
+
+
+===============================================================================
+
+KESIMPULAN PEMBELAJARAN
+-------------------------------------------------------------------------------
+
+Dari kesulitan-kesulitan yang dihadapi, beberapa pembelajaran penting:
+
+1. DESIGN SEBELUM CODE
+   - Pahami requirement secara detail sebelum coding
+   - Pikirkan edge cases dan error scenarios
+   - Design class hierarchy dengan matang
+
+2. OOP PRINCIPLES
+   - Enkapsulasi untuk data protection
+   - Inheritance untuk code reuse
+   - Polimorfisme untuk extensibility
+   - Abstraksi untuk defining contracts
+
+3. ERROR HANDLING
+   - Always validate input
+   - Use try-catch untuk exception handling
+   - Provide informative error messages
+   - Never let program crash dari user input
+
+4. DATA STRUCTURES
+   - Pilih struktur data sesuai use case
+   - Consider performance implications
+   - HashMap untuk fast lookup, ArrayList untuk ordered collection
+
+5. TESTING
+   - Test dengan berbagai input (valid, invalid, edge cases)
+   - Test semua execution paths
+   - Test error handling mechanisms
+
+Kesulitan adalah bagian dari proses pembelajaran. Setiap masalah yang diselesaikan
+meningkatkan pemahaman dan skill programming.
+
+===============================================================================

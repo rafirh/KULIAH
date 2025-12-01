@@ -1,0 +1,15 @@
+public class PlatinumCustomer extends Customer {
+
+  public PlatinumCustomer(String customerNumber, String name, double balance, String pin) {
+    super(customerNumber, name, balance, pin);
+  }
+
+  @Override
+  public double calculateCashback(double amount) {
+    if (amount > 1000000) {
+      return amount * 0.10;
+    } else {
+      return amount * 0.05;
+    }
+  }
+}

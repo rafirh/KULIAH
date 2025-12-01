@@ -1,0 +1,379 @@
+===============================================================================
+         PSEUDOCODE SISTEM TRANSAKSI SWALAYAN TINY
+===============================================================================
+
+CLASS Customer (Abstract)
+    ATTRIBUTES:
+        - customerNumber: String (private)
+        - name: String (private)
+        - balance: Double (private)
+        - pin: String (private)
+        - isFrozen: Boolean (private)
+        - failedAttempts: Integer (private)
+    
+    CONSTRUCTOR(customerNumber, name, balance, pin):
+        SET this.customerNumber = customerNumber
+        SET this.name = name
+        SET this.balance = balance
+        SET this.pin = pin
+        SET this.isFrozen = false
+        SET this.failedAttempts = 0
+    END CONSTRUCTOR
+    
+    ABSTRACT METHOD calculateCashback(amount)
+    
+    METHOD getCustomerNumber():
+        RETURN customerNumber
+    END METHOD
+    
+    METHOD getName():
+        RETURN name
+    END METHOD
+    
+    METHOD getBalance():
+        RETURN balance
+    END METHOD
+    
+    METHOD isFrozen():
+        RETURN isFrozen
+    END METHOD
+    
+    METHOD getFailedAttempts():
+        RETURN failedAttempts
+    END METHOD
+    
+    METHOD validatePin(inputPin):
+        IF isFrozen = true THEN
+            RETURN false
+        END IF
+        
+        IF pin = inputPin THEN
+            SET failedAttempts = 0
+            RETURN true
+        ELSE
+            INCREMENT failedAttempts by 1
+            IF failedAttempts >= 3 THEN
+                SET isFrozen = true
+            END IF
+            RETURN false
+        END IF
+    END METHOD
+    
+    METHOD purchase(amount):
+        IF isFrozen = true THEN
+            RETURN false
+        END IF
+        
+        SET cashback = calculateCashback(amount)
+        SET finalBalance = balance - amount + cashback
+        
+        IF finalBalance < 10000 THEN
+            RETURN false
+        END IF
+        
+        SET balance = finalBalance
+        RETURN true
+    END METHOD
+    
+    METHOD topUp(amount):
+        IF isFrozen = true THEN
+            RETURN false
+        END IF
+        
+        SET balance = balance + amount
+        RETURN true
+    END METHOD
+    
+    METHOD getCustomerType():
+        SET prefix = SUBSTRING(customerNumber, 0, 2)
+        IF prefix = "38" THEN
+            RETURN "Silver"
+        ELSE IF prefix = "56" THEN
+            RETURN "Gold"
+        ELSE IF prefix = "74" THEN
+            RETURN "Platinum"
+        ELSE
+            RETURN "Unknown"
+        END IF
+    END METHOD
+END CLASS
+
+===============================================================================
+
+CLASS SilverCustomer EXTENDS Customer
+    CONSTRUCTOR(customerNumber, name, balance, pin):
+        CALL PARENT CONSTRUCTOR(customerNumber, name, balance, pin)
+    END CONSTRUCTOR
+    
+    OVERRIDE METHOD calculateCashback(amount):
+        IF amount > 1000000 THEN
+            RETURN amount × 0.05
+        END IF
+        RETURN 0
+    END METHOD
+END CLASS
+
+===============================================================================
+
+CLASS GoldCustomer EXTENDS Customer
+    CONSTRUCTOR(customerNumber, name, balance, pin):
+        CALL PARENT CONSTRUCTOR(customerNumber, name, balance, pin)
+    END CONSTRUCTOR
+    
+    OVERRIDE METHOD calculateCashback(amount):
+        IF amount > 1000000 THEN
+            RETURN amount × 0.07
+        ELSE
+            RETURN amount × 0.02
+        END IF
+    END METHOD
+END CLASS
+
+===============================================================================
+
+CLASS PlatinumCustomer EXTENDS Customer
+    CONSTRUCTOR(customerNumber, name, balance, pin):
+        CALL PARENT CONSTRUCTOR(customerNumber, name, balance, pin)
+    END CONSTRUCTOR
+    
+    OVERRIDE METHOD calculateCashback(amount):
+        IF amount > 1000000 THEN
+            RETURN amount × 0.10
+        ELSE
+            RETURN amount × 0.05
+        END IF
+    END METHOD
+END CLASS
+
+===============================================================================
+
+CLASS TransactionSystem
+    ATTRIBUTES:
+        - customers: Map<String, Customer> (private)
+    
+    CONSTRUCTOR():
+        INITIALIZE customers as empty HashMap
+    END CONSTRUCTOR
+    
+    METHOD registerCustomer(customer):
+        ADD customer to customers with key = customer.getCustomerNumber()
+    END METHOD
+    
+    METHOD getCustomer(customerNumber):
+        RETURN customers[customerNumber]
+    END METHOD
+    
+    METHOD authenticate(customerNumber, pin):
+        SET customer = customers[customerNumber]
+        
+        IF customer = null THEN
+            RETURN false
+        END IF
+        
+        RETURN customer.validatePin(pin)
+    END METHOD
+    
+    METHOD processPurchase(customerNumber, pin, amount):
+        IF amount <= 0 THEN
+            RETURN "Jumlah pembelian tidak valid!"
+        END IF
+        
+        SET customer = customers[customerNumber]
+        
+        IF customer = null THEN
+            RETURN "Nomor pelanggan tidak ditemukan!"
+        END IF
+        
+        IF customer.isFrozen() = true THEN
+            RETURN "Akun Anda telah diblokir karena 3x kesalahan autentifikasi!"
+        END IF
+        
+        IF customer.validatePin(pin) = false THEN
+            SET remainingAttempts = 3 - customer.getFailedAttempts()
+            IF customer.isFrozen() = true THEN
+                RETURN "PIN salah! Akun Anda telah diblokir!"
+            END IF
+            RETURN "PIN salah! Sisa percobaan: " + remainingAttempts
+        END IF
+        
+        SET cashback = customer.calculateCashback(amount)
+        SET balanceBefore = customer.getBalance()
+        
+        IF customer.purchase(amount) = true THEN
+            SET balanceAfter = customer.getBalance()
+            RETURN success message with details (amount, cashback, balances)
+        ELSE
+            RETURN "Transaksi gagal! Saldo tidak mencukupi (minimal saldo Rp 10.000 setelah transaksi)."
+        END IF
+    END METHOD
+    
+    METHOD processTopUp(customerNumber, pin, amount):
+        IF amount <= 0 THEN
+            RETURN "Jumlah top up tidak valid!"
+        END IF
+        
+        SET customer = customers[customerNumber]
+        
+        IF customer = null THEN
+            RETURN "Nomor pelanggan tidak ditemukan!"
+        END IF
+        
+        IF customer.isFrozen() = true THEN
+            RETURN "Akun Anda telah diblokir karena 3x kesalahan autentifikasi!"
+        END IF
+        
+        IF customer.validatePin(pin) = false THEN
+            SET remainingAttempts = 3 - customer.getFailedAttempts()
+            IF customer.isFrozen() = true THEN
+                RETURN "PIN salah! Akun Anda telah diblokir!"
+            END IF
+            RETURN "PIN salah! Sisa percobaan: " + remainingAttempts
+        END IF
+        
+        SET balanceBefore = customer.getBalance()
+        CALL customer.topUp(amount)
+        SET balanceAfter = customer.getBalance()
+        
+        RETURN success message with details (amount, balances)
+    END METHOD
+    
+    METHOD checkBalance(customerNumber, pin):
+        SET customer = customers[customerNumber]
+        
+        IF customer = null THEN
+            RETURN "Nomor pelanggan tidak ditemukan!"
+        END IF
+        
+        IF customer.isFrozen() = true THEN
+            RETURN "Akun Anda telah diblokir karena 3x kesalahan autentifikasi!"
+        END IF
+        
+        IF customer.validatePin(pin) = false THEN
+            SET remainingAttempts = 3 - customer.getFailedAttempts()
+            IF customer.isFrozen() = true THEN
+                RETURN "PIN salah! Akun Anda telah diblokir!"
+            END IF
+            RETURN "PIN salah! Sisa percobaan: " + remainingAttempts
+        END IF
+        
+        RETURN account information (customerNumber, name, type, balance)
+    END METHOD
+END CLASS
+
+===============================================================================
+
+MAIN PROGRAM
+    BEGIN
+        CREATE TransactionSystem object named system
+        CREATE Scanner object for user input
+        
+        CREATE SilverCustomer("3812345678", "Budi Santoso", 5000000, "1234")
+        CREATE GoldCustomer("5687654321", "Siti Nurhaliza", 10000000, "5678")
+        CREATE PlatinumCustomer("7411223344", "Ahmad Dahlan", 20000000, "9012")
+        
+        REGISTER all customers to system
+        
+        LOOP forever:
+            DISPLAY menu header
+            DISPLAY "1. Pembelian"
+            DISPLAY "2. Top Up"
+            DISPLAY "3. Cek Saldo"
+            DISPLAY "4. Keluar"
+            
+            INPUT choice
+            
+            IF choice = 4 THEN
+                DISPLAY "Terima kasih telah menggunakan layanan kami!"
+                BREAK loop
+            END IF
+            
+            INPUT customerNumber (must be 10 digits)
+            
+            IF length of customerNumber ≠ 10 THEN
+                DISPLAY "Nomor pelanggan harus 10 digit!"
+                CONTINUE to next iteration
+            END IF
+            
+            INPUT pin
+            
+            SWITCH choice:
+                CASE 1 (Pembelian):
+                    INPUT purchaseAmount
+                    SET result = system.processPurchase(customerNumber, pin, purchaseAmount)
+                    DISPLAY result
+                    BREAK
+                
+                CASE 2 (Top Up):
+                    INPUT topUpAmount
+                    SET result = system.processTopUp(customerNumber, pin, topUpAmount)
+                    DISPLAY result
+                    BREAK
+                
+                CASE 3 (Cek Saldo):
+                    SET result = system.checkBalance(customerNumber, pin)
+                    DISPLAY result
+                    BREAK
+                
+                DEFAULT:
+                    DISPLAY "Menu tidak valid!"
+            END SWITCH
+        END LOOP
+        
+        CLOSE scanner
+    END
+END MAIN PROGRAM
+
+===============================================================================
+                            ALUR KERJA SISTEM
+===============================================================================
+
+1. INISIALISASI SISTEM
+   - Buat objek TransactionSystem
+   - Registrasi pelanggan demo (Silver, Gold, Platinum)
+
+2. MENU UTAMA
+   - Tampilkan 4 pilihan menu
+   - Terima input pilihan dari user
+
+3. AUTENTIFIKASI
+   - Input nomor pelanggan (validasi 10 digit)
+   - Input PIN
+   - Validasi melalui sistem
+
+4. PROSES TRANSAKSI
+   
+   A. PEMBELIAN:
+      - Validasi jumlah pembelian > 0
+      - Cek apakah pelanggan terdaftar
+      - Cek apakah akun diblokir
+      - Validasi PIN (maks 3x salah)
+      - Hitung cashback berdasarkan tipe pelanggan
+      - Cek saldo akhir >= 10000
+      - Jika valid: kurangi saldo, tambah cashback
+      - Tampilkan hasil transaksi
+   
+   B. TOP UP:
+      - Validasi jumlah top up > 0
+      - Cek apakah pelanggan terdaftar
+      - Cek apakah akun diblokir
+      - Validasi PIN (maks 3x salah)
+      - Tambah saldo
+      - Tampilkan hasil top up
+   
+   C. CEK SALDO:
+      - Cek apakah pelanggan terdaftar
+      - Cek apakah akun diblokir
+      - Validasi PIN (maks 3x salah)
+      - Tampilkan informasi akun lengkap
+
+5. SISTEM KEAMANAN
+   - Hitung kesalahan PIN per pelanggan
+   - Jika 3x salah: blokir akun (isFrozen = true)
+   - Akun terblokir tidak bisa melakukan transaksi
+
+6. PERHITUNGAN CASHBACK
+   - Silver (38xxx): 5% jika pembelian > 1 juta
+   - Gold (56xxx): 7% jika > 1 juta, 2% jika <= 1 juta
+   - Platinum (74xxx): 10% jika > 1 juta, 5% jika <= 1 juta
+
+===============================================================================
